@@ -24,3 +24,9 @@ RandomEvaluation.py is used to transform the acceleration measure from the senso
  - Finalize
 
 
+
+---
+
+## Reference
+
+- Tom Irvine, Vibrationdata. https://www.vibrationdata.com/
