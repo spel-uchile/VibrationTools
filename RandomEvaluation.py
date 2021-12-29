@@ -11,83 +11,152 @@ import numpy as np
 import pandas as pd
 from nptdms import TdmsFile
 from tools.Time2PSD import psdftt
+import bottleneck as bn
 
+fsamp = 5000
+signalDuration = 60.0
+dP = 4096 / fsamp
 
-df_real = pd.read_csv("digitized/spacex_random_rigol", sep='\t')
-time_acc_real = np.zeros(len(df_real.values) + 1)
+# INPUT PSD
+df_long = pd.read_csv("psd/ionDorbit_Longitudinal.txt", sep='\t', header=None)
+df_lat = pd.read_csv("psd/ionDorbit_Lateral.txt", sep='\t', header=None)
 
-time_acc_real[1:] = df_real.values[:, 0]
+HZ = [df_long.values[:, 0], df_lat.values[:, 0]]
+GRMS2 = [df_long.values[:, 1], df_lat.values[:, 1]]
 
-acc_psd_real = np.zeros(len(time_acc_real))
-acc_psd_real[0] = df_real.columns[1]
-acc_psd_real[1:] = df_real.values[:, 1]
-len_data_real = len(acc_psd_real)
+# INPUT signal
+df_long = pd.read_csv("digitized/IONRandomLongitudinal", sep='\t', header=None)
+df_lat = pd.read_csv("digitized/IONRandomLateral", sep='\t', header=None)
 
-# df = pd.read_csv("sensors/LogFile_2021-12-16-18-23-45.csv", sep=';')
-df = TdmsFile("./sensors/LogFile_2021-12-21-19-28-13.tdms")
+time_acc_expected = [np.zeros(len(df_long.values)),
+                 np.zeros(len(df_lat.values))]
+
+time_acc_expected[0] = df_long.values[:, 0]
+time_acc_expected[1] = df_lat.values[:, 0]
+
+acc_psd_expected = [np.zeros(len(time_acc_expected[0])), np.zeros(len(time_acc_expected[1]))]
+acc_psd_expected[0] = df_long.values[:, 1]
+acc_psd_expected[1] = df_lat.values[:, 1]
+
+for i in range(2):
+    graph_time = time_acc_expected[i]
+    graph_acc = acc_psd_expected[i]
+    while max(graph_time) < signalDuration:
+        graph_time = np.append(graph_time, max(graph_time) + time_acc_expected[i] + 1/fsamp)
+        graph_acc = np.append(graph_acc, acc_psd_expected[i])
+    acc_psd_expected[i] = graph_acc
+    time_acc_expected[i] = graph_time
+
+len_data_expected = [len(acc_psd_expected[0]), len(acc_psd_expected[1])]
+
+nfft2_expected = [2, 2]
+for i in range(2):
+    while nfft2_expected[i] < len_data_expected[i]:
+        nfft2_expected[i] *= 2
+    nfft2_expected[i] /= 2
+    nfft2_expected[i] = int(nfft2_expected[i])
+
+acc_fft_ref = [np.fft.fft(acc_psd_expected[0][:nfft2_expected[0]]) / nfft2_expected[0],
+               np.fft.fft(acc_psd_expected[1][:nfft2_expected[1]]) / nfft2_expected[0]]  # Normalize
+freq_fft_ref = [np.fft.fftfreq(nfft2_expected[0]) * fsamp,
+                np.fft.fftfreq(nfft2_expected[1]) * fsamp]
+
+# =============================================================================================#
+
+# Sensor
+df = [TdmsFile("./sensors/Suchai2/Longitudinal/LogFile_2021-12-24-14-41-46.tdms"),
+      TdmsFile("./sensors/Suchai2/Lateral/LogFile_2021-12-24-14-36-27.tdms")]
+name_signal = ['Longitudinal',
+               'Lateral']
+
+sensors_name = ['cDAQ9189-1D36166Mod2/ai0',
+                'cDAQ9189-1D36166Mod3/ai1']
+len_signals = len(df)
 
 # Channels
-acc_psd = 0.5*(df.as_dataframe().values[:, 1] + df.as_dataframe().values[:, 0])
-# acc_psd[np.where(acc_psd > 20)] = 20.0
-time_psd = df['Log'][df['Log'].channels()[0].name].time_track()
-fsamp = 5000
+acc_psd = []
+time_psd = []
+len_data = []
+for dfi in df:
+    acc_psd.append((dfi['Log'][sensors_name[0]].data + dfi['Log'][sensors_name[1]].data) * 0.5)
+    # acc_psd[np.where(acc_psd > 20)] = 20.0
+    time_psd.append(dfi['Log'][dfi['Log'].channels()[0].name].time_track())
+    len_data.append(len(acc_psd[-1]))
 
-#time_psd = np.arange(0, 60, 1 / fsamp)
-#amp = [1] #np.arange(20, 1800, 20)
-#acc_psd = np.zeros(len(time_psd))
-#for a in amp:
-#    acc_psd += np.sin(2000 * 2 * np.pi * time_psd)
+nfft2 = [2] * len_signals
+for i in range(len_signals):
+    while nfft2[i] < len_data[i]:
+        nfft2[i] *= 2
+    nfft2[i] /= 2
+    nfft2[i] = int(nfft2[i])
 
-# acc_psd *= (5.13 / np.std(acc_psd))
-len_data = len(acc_psd)
-print(fsamp)
-print(len_data)
-nfft2 = 2
-while nfft2 < len_data:
-    nfft2 *= 2
-nfft2 /= 2
-nfft2 = int(nfft2)
+# Fourier transform
+acc_fft = []
+freq_fft = []
+grms_acc = []
+for i in range(len_signals):
+    acc_fft.append(np.fft.fft(acc_psd[i][:nfft2[i]]) / nfft2[i])  # Normalize
+    freq_fft.append(np.fft.fftfreq(nfft2[i]) * fsamp)
+    grms_acc.append(np.sqrt(np.mean(acc_psd[i] ** 2)))
 
-acc_fft = np.fft.fft(acc_psd[:nfft2]) / nfft2    # Normalize
-freq_fft = np.fft.fftfreq(nfft2) * fsamp
-acc_fft_ref = np.fft.fft(acc_psd_real[:4096]) / 4096  # Normalize
-freq_fft_ref = np.fft.fftfreq(4096) * fsamp
+print('GRMS from acceleration: ', grms_acc)
 
-plt.figure()
-plt.vlines(freq_fft_ref[:int(4096 / 2)], 0, np.abs(acc_fft_ref[:int(4096 / 2)]), colors='b')
-plt.vlines(freq_fft[:int(nfft2 / 2)], 0, np.abs(acc_fft[:int(nfft2 / 2)]), colors='r')
-plt.grid()
+psd_acc, psd_freq, oarms_fft = [], [], []
+psd_acc_expected, psd_freq_expected, oarms_fft_expected = [], [], []
+for i in range(2):
+    acc_fft_, freq_fft_, oarms_fft_ = psdftt(acc_psd[i], nfft2[i] / 16, fsamp, 0, nfft2[i] / 32)
+    psd_acc.append(acc_fft_)
+    psd_freq.append(freq_fft_)
+    oarms_fft.append(oarms_fft_)
 
-grms_acc = np.sqrt(np.mean(acc_psd ** 2))
-print(grms_acc)
+    # acc_fft_, freq_fft_, oarms_fft_ = psdftt(acc_psd_expected[i], nfft2_expected[i] / 8, fsamp, 0, nfft2_expected[i] / 16)
+    acc_fft_, freq_fft_, oarms_fft_ = psdftt(acc_psd_expected[i][:4096], 4096 / 8, fsamp, 0,
+                                             4096 / 16)
+    psd_acc_expected.append(acc_fft_)
+    psd_freq_expected.append(freq_fft_)
+    oarms_fft_expected.append(oarms_fft_)
 
-windows_ = -1
-if len_data < windows_:
-    windows_ = len_data
-plt.figure(figsize=(20, 5))
-plt.step(time_psd[:windows_], acc_psd[:windows_], 'r')
-# plt.step(time_acc_real[:windows_], acc_psd_real[:windows_], 'b')
-plt.grid()
-plt.xlabel("Time [s]")
-plt.ylabel("Acc [g]")
+print("Grms from measured PSD: ", oarms_fft)
+print("Grms from expected PSD: ", oarms_fft_expected)
 
-acc_fft, freq_fft, oarms_fft = psdftt(acc_psd, nfft2 / 8, fsamp, 0, nfft2 / 16)
+# =============================================================================================#
 
-print("Grms [G]: ", oarms_fft)
+for i in range(2):
+    plt.figure()
+    plt.title('Fourier transform. ' + name_signal[i] + ' test')
+    plt.vlines(freq_fft_ref[i][:int(nfft2_expected[i]/2)], 0, np.abs(acc_fft_ref[i][:int(nfft2_expected[i] / 2)]),
+               color='k', label='Expected')
+    plt.vlines(freq_fft[i][:int(nfft2[i] / 2)], 0, np.abs(acc_fft[i][:int(nfft2[i] / 2)]),
+               color='b', label='Measured')
+    plt.grid()
+    plt.legend()
 
-# PSD input: SpaceX
-HZ = [20, 100, 300, 700, 800, 925, 2000]
-GRMS2 = [0.0044, 0.0044, 0.01, 0.01, 0.03, 0.03, 0.00644]
+    windows_ = len(acc_psd[i])
+    if windows_ > len(time_psd[i]):
+        windows_ = len(time_psd[i])
 
-plt.figure(figsize=(15, 5))
-plt.yscale('log')
-plt.xscale('log')
-plt.plot(freq_fft, acc_fft)
-plt.plot(HZ, GRMS2, 'k')
-plt.grid(which='both', axis='both')
-plt.title('PSD: power spectral density')
-plt.xlabel('Frequency')
-plt.ylabel('Power')
-plt.ylim(1e-8, 1e1)
-plt.tight_layout()
+    plt.figure(figsize=(10, 5))
+    plt.title('Acceleration ' + name_signal[i])
+    plt.step(time_psd[i][:windows_], acc_psd[i][:windows_], 'r')
+    plt.grid()
+    plt.xlabel("Time [s]")
+    plt.ylabel("Acceleration [g]")
+    plt.step(time_acc_expected[i], acc_psd_expected[i], 'b')
+
+    plt.figure(figsize=(10, 5))
+    plt.title('PSD: power spectral density. ' + name_signal[i] + ' test - Grms = ' + str(oarms_fft[i]))
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.plot(psd_freq[i], psd_acc[i], label='Measured acceleration')
+    plt.plot(bn.move_mean(psd_freq[i], window=20), bn.move_mean(psd_acc[i], window=20), label='Moving average of measured')
+    plt.plot(HZ[i], GRMS2[i], 'k', label='PSD required')
+    plt.plot(psd_freq_expected[i], psd_acc_expected[i], label='PSD expected')
+    plt.grid(which='both', axis='both')
+    plt.xlabel('Frequency')
+    plt.ylabel('PSD [G^2/Hz]')
+    plt.ylim(1e-8, 1e1)
+    plt.tight_layout()
+    plt.legend()
+
+print('View plots')
 plt.show()

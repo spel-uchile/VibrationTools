@@ -28,7 +28,7 @@ from numpy import zeros, random, linspace, std
 from numpy import sqrt, log, cos, sin, log10
 from numpy import argmax, interp, where, repeat
 
-from scipy.fftpack import fft
+from scipy.fftpack import fft, fftfreq
 from scipy.fftpack import ifft
 
 import matplotlib.pyplot as plt
@@ -578,11 +578,15 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     plt.ylabel(psd_label)
     plt.xlabel(' Frequency (Hz) ')
     plt.grid(True)
-    plt.savefig('img/power_spectral_density_' + a_output_file_path[:-1])
     plt.xscale('log')
     plt.yscale('log')
     plt.legend(loc="upper right")
-    
+    plt.savefig('img/power_spectral_density_' + a_output_file_path[:-1])
+
+    plt.figure(8)
+    plt.title('Fourier transform')
+    plt.plot(fftfreq(len(psd_th))[:int(len(psd_th)/2)]/ TT[1], abs(fft(psd_th)[:int(len(psd_th)/2)]) / len(psd_th))
+    plt.grid()
     ############################################################################
     
     print(" ")
