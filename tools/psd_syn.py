@@ -237,8 +237,8 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     stddev = std(psd_th)
     
     psd_th *= (spec_grms / stddev)
-    psd_th[where(psd_th > 20)] = 0.95 * 20
-    psd_th[where(psd_th < -20)] = -0.95 * 20
+    #psd_th[where(psd_th > 20)] = 0.95 * 20
+    #psd_th[where(psd_th < -20)] = -0.95 * 20
 
     nktime = ceil(signalDuration / tmax)
     new_len = M * nktime
