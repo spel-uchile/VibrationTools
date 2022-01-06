@@ -112,7 +112,6 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     LS = nm1
     
     three_rms = 3 * rms
-    
 
     # print(" ")
     # print(" Enter duration(sec)")
@@ -122,7 +121,7 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
         pmin = 1/sr
 
     tmax = pmin * M
-
+    print('Period [sec]: ', tmax)
     fmax = max(freq_spec)
 
     dt = 1 / sr
