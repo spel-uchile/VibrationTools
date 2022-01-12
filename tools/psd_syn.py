@@ -138,15 +138,6 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     
     white_noise = random.normal(mu, sigma, np3)
     
-    # limited by shaker
-    max_wn_sig = max(white_noise * rms/std(white_noise))
-    max_wn = abs(max_wn_sig)
-    # while max_wn > 20:
-    #     index_max = argmax(white_noise)
-    #     white_noise[index_max] = (abs(max_wn_sig) / max_wn_sig) * 0.95 * 20 / max_wn
-    #     max_wn_sig = max(white_noise * rms / std(white_noise))
-    #     max_wn = abs(max_wn_sig)
-    
     print(" End white noise")
     
     num_fft = 2
