@@ -29,7 +29,7 @@ df_long = pd.read_csv("digitized/IONRandomLongitudinalPFM", sep='\t', header=Non
 df_lat = pd.read_csv("digitized/IONRandomLateralPFM", sep='\t', header=None)
 
 time_acc_expected = [np.zeros(len(df_long.values)),
-                 np.zeros(len(df_lat.values))]
+                     np.zeros(len(df_lat.values))]
 
 time_acc_expected[0] = df_long.values[:, 0]
 time_acc_expected[1] = df_lat.values[:, 0]
@@ -64,8 +64,8 @@ freq_fft_ref = [np.fft.fftfreq(nfft2_expected[0]) * fsamp,
 # =============================================================================================#
 
 # Sensor
-df = [TdmsFile("./sensors/Test-11-01-22/LogFile_2022-01-11-17-05-26-random-longitudinal.tdms"),
-      TdmsFile("./sensors/Test-11-01-22/LogFile_2022-01-11-16-55-35-random-lateral.tdms")]
+df = [TdmsFile("./sensors/Test-17-01-22/LogFile_2022-01-17-18-06-54-longitudinal.tdms"),
+      TdmsFile("./sensors/Test-17-01-22/LogFile_2022-01-17-17-42-50-lateral.tdms")]
 name_signal = ['Longitudinal',
                'Lateral']
 
@@ -77,12 +77,14 @@ len_signals = len(df)
 acc_psd = []
 time_psd = []
 len_data = []
+i = 0
 for dfi in df:
     acc_psd.append([])
     for sname in sensors_name:
         acc_psd[-1].append(dfi['Log'][sname].data)
     time_psd.append(dfi['Log'][dfi['Log'].channels()[0].name].time_track())
-    len_data.append(min(len(time_psd[-1]), len(acc_psd[0][-1])))
+    len_data.append(min(len(time_psd[i]), len(acc_psd[i][-1])))
+    i += 1
 
 nfft2 = [2] * len_signals
 #for i in range(len_signals):
@@ -143,7 +145,7 @@ for i in range(len(name_signal)):
         axes_fft[k].vlines(freq_fft_ref[i][:int(nfft2_expected[i]/2)], 0, np.abs(acc_fft_ref[i][:int(nfft2_expected[i] / 2)]),
                            color='k', label='Expected')
         axes_fft[k].vlines(freq_fft[i][:int(nfft2[i] / 2)], 0, np.abs(acc_fft[i][k][:int(nfft2[i] / 2)]),
-                                 color=color_s[k], label='Measured-'+str(k))
+                                 color=color_s[k], label='Measured-ai'+str(k))
         axes_fft[k].grid()
         axes_fft[k].legend()
 
@@ -154,7 +156,7 @@ for i in range(len(name_signal)):
     fig_acc, axes_acc = plt.subplots(1, 2, figsize=(10, 5))
     fig_acc.suptitle('Acceleration ' + name_signal[i])
     for k in range(len(sensors_name)):
-        axes_acc[k].step(time_psd[i][:windows_], acc_psd[i][k][:windows_], color_s[k], label='Measured-' + str(k))
+        axes_acc[k].step(time_psd[i][:windows_], acc_psd[i][k][:windows_], color_s[k], label='Measured-ai' + str(k))
         axes_acc[k].grid()
         axes_acc[k].set_xlabel("Time [s]")
         axes_acc[k].set_ylabel("Acceleration [g]")
@@ -167,10 +169,10 @@ for i in range(len(name_signal)):
         max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
         axes_psd[k].set_yscale('log')
         axes_psd[k].set_xscale('log')
-        axes_psd[k].plot(psd_freq[i][k][:max_wind], psd_acc[i][k][:max_wind], label='Measured acceleration-'+str(k))
+        axes_psd[k].plot(psd_freq[i][k][:max_wind], psd_acc[i][k][:max_wind], label='Measured acceleration-ai'+str(k))
         axes_psd[k].plot(bn.move_mean(psd_freq[i][k][:max_wind], window=20), bn.move_mean(psd_acc[i][k][:max_wind],
                                                                                           window=20),
-                         label='Moving average of measured-'+str(k))
+                         label='Moving average of measured-ai'+str(k))
         axes_psd[k].plot(HZ[i], GRMS2[i], 'k', label='PSD required')
         axes_psd[k].plot(psd_freq_expected[i], psd_acc_expected[i], label='PSD expected')
         axes_psd[k].grid(which='both', axis='both')
