@@ -64,8 +64,8 @@ freq_fft_ref = [np.fft.fftfreq(nfft2_expected[0]) * fsamp,
 # =============================================================================================#
 
 # Sensor
-df = [TdmsFile("./sensors/Test-17-01-22/LogFile_2022-01-17-18-06-54-longitudinal.tdms"),
-      TdmsFile("./sensors/Test-17-01-22/LogFile_2022-01-17-17-42-50-lateral.tdms")]
+df = [TdmsFile("./sensors/PlantSat - 20-01-22/LogFile_2022-01-20-18-26-39-Longitudinal.tdms"),
+      TdmsFile("./sensors/PlantSat - 20-01-22/LogFile_2022-01-20-17-38-41-Lateral2.tdms")]
 name_signal = ['Longitudinal',
                'Lateral']
 
@@ -114,17 +114,41 @@ for i in range(len_signals):
     freq_fft.append(np.fft.fftfreq(nfft2[i]) * fsamp)
 
 psd_acc, psd_freq, oarms_fft = [], [], []
-psd_acc_expected, psd_freq_expected, oarms_fft_expected = [], [], []
+g_acc = []
+freq_qs = []
+delta_freq_factor_crit = 20
+winn = 20
 for i in range(len(name_signal)):
     psd_acc.append([])
     psd_freq.append([])
     oarms_fft.append([])
+    g_acc.append([])
+    freq_qs.append([])
     for k in range(len(sensors_name)):
         acc_fft_, freq_fft_, oarms_fft_ = psdftt(acc_psd[i][k], int(nfft2[i] / 16), fsamp, 0, int(nfft2[i] / 32))
         psd_acc[i].append(acc_fft_)
         psd_freq[i].append(freq_fft_)
         oarms_fft[i].append(oarms_fft_)
 
+        max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
+        x_temp = bn.move_mean(psd_freq[i][k][:max_wind], window=winn)[winn-1:]
+        y_temp = bn.move_mean(psd_acc[i][k][:max_wind], window=winn)[winn-1:]
+        i_max = np.argmax(y_temp)
+        freq_qs[i].append(x_temp[i_max])
+        i_20 = np.argmin(abs(x_temp - 10))
+        factor_crit = np.argmin(abs(x_temp - x_temp[i_max] - delta_freq_factor_crit))
+        x_area = x_temp[i_20:factor_crit]
+        y_area = y_temp[i_20:factor_crit]
+        g_acc[i].append(np.sqrt(np.sum(y_area * np.mean(np.diff(x_area)))))
+
+print("Quasi-static equivalent vibration test:")
+print("Frequency - Gaccumulated - 3Sigma")
+for i in range(len(name_signal)):
+    for k in range(len(sensors_name)):
+        print('ai', k, "-", round(freq_qs[i][k], 2), round(g_acc[i][k], 2), round(g_acc[i][k]*3, 2))
+print("-------------------------------------------------------------------")
+
+psd_acc_expected, psd_freq_expected, oarms_fft_expected = [], [], []
 for i in range(2):
     acc_fft_, freq_fft_, oarms_fft_ = psdftt(acc_psd_expected[i][:4096], 4096 / 8, fsamp, 0,
                                              4096 / 16)
@@ -135,33 +159,32 @@ for i in range(2):
 print("DATA Grms from measured PSD: ", oarms_fft)
 print("Grms from expected PSD: ", oarms_fft_expected)
 
-
 # =============================================================================================#
 color_s = ['b', 'r', 'o', 'g']
 for i in range(len(name_signal)):
-    fig_fft, axes_fft = plt.subplots(1, 2, figsize=(10, 5))
-    fig_fft.suptitle('Fourier transform. ' + name_signal[i] + ' test')
-    for k in range(len(sensors_name)):
-        axes_fft[k].vlines(freq_fft_ref[i][:int(nfft2_expected[i]/2)], 0, np.abs(acc_fft_ref[i][:int(nfft2_expected[i] / 2)]),
-                           color='k', label='Expected')
-        axes_fft[k].vlines(freq_fft[i][:int(nfft2[i] / 2)], 0, np.abs(acc_fft[i][k][:int(nfft2[i] / 2)]),
-                                 color=color_s[k], label='Measured-ai'+str(k))
-        axes_fft[k].grid()
-        axes_fft[k].legend()
+    # fig_fft, axes_fft = plt.subplots(1, 2, figsize=(10, 5))
+    # fig_fft.suptitle('Fourier transform. ' + name_signal[i] + ' test')
+    # for k in range(len(sensors_name)):
+    #     axes_fft[k].vlines(freq_fft_ref[i][:int(nfft2_expected[i]/2)], 0, np.abs(acc_fft_ref[i][:int(nfft2_expected[i] / 2)]),
+    #                        color='k', label='Expected')
+    #     axes_fft[k].vlines(freq_fft[i][:int(nfft2[i] / 2)], 0, np.abs(acc_fft[i][k][:int(nfft2[i] / 2)]),
+    #                              color=color_s[k], label='Measured-ai'+str(k))
+    #     axes_fft[k].grid()
+    #     axes_fft[k].legend()
 
     windows_ = max(len(acc_psd[i][0]), len(acc_psd[i][1]))
     if windows_ > len(time_psd[i]):
         windows_ = len(time_psd[i])
 
-    fig_acc, axes_acc = plt.subplots(1, 2, figsize=(10, 5))
-    fig_acc.suptitle('Acceleration ' + name_signal[i])
-    for k in range(len(sensors_name)):
-        axes_acc[k].step(time_psd[i][:windows_], acc_psd[i][k][:windows_], color_s[k], label='Measured-ai' + str(k))
-        axes_acc[k].grid()
-        axes_acc[k].set_xlabel("Time [s]")
-        axes_acc[k].set_ylabel("Acceleration [g]")
-        axes_acc[k].step(time_acc_expected[i], acc_psd_expected[i], 'k', label='Expected')
-        axes_acc[k].legend()
+    # fig_acc, axes_acc = plt.subplots(1, 2, figsize=(10, 5))
+    # fig_acc.suptitle('Acceleration ' + name_signal[i])
+    # for k in range(len(sensors_name)):
+    #     axes_acc[k].step(time_psd[i][:windows_], acc_psd[i][k][:windows_], color_s[k], label='Measured-ai' + str(k))
+    #     axes_acc[k].grid()
+    #     axes_acc[k].set_xlabel("Time [s]")
+    #     axes_acc[k].set_ylabel("Acceleration [g]")
+    #     axes_acc[k].step(time_acc_expected[i], acc_psd_expected[i], 'k', label='Expected')
+    #     axes_acc[k].legend()
 
     fig_psd, axes_psd = plt.subplots(2, 1, figsize=(10, 7))
     fig_psd.suptitle('PSD: power spectral density. ' + name_signal[i] + ' test - Grms = ' + str(oarms_fft[i]))
@@ -170,25 +193,61 @@ for i in range(len(name_signal)):
         axes_psd[k].set_yscale('log')
         axes_psd[k].set_xscale('log')
         axes_psd[k].plot(psd_freq[i][k][:max_wind], psd_acc[i][k][:max_wind], label='Measured acceleration-ai'+str(k))
-        axes_psd[k].plot(bn.move_mean(psd_freq[i][k][:max_wind], window=20), bn.move_mean(psd_acc[i][k][:max_wind],
-                                                                                          window=20),
+        axes_psd[k].plot(bn.move_mean(psd_freq[i][k][:max_wind], window=winn), bn.move_mean(psd_acc[i][k][:max_wind],
+                                                                                            window=winn),
                          label='Moving average of measured-ai'+str(k))
         axes_psd[k].plot(HZ[i], GRMS2[i], 'k', label='PSD required')
         axes_psd[k].plot(psd_freq_expected[i], psd_acc_expected[i], label='PSD expected')
         axes_psd[k].grid(which='both', axis='both')
         axes_psd[k].set_xlabel('Frequency')
         axes_psd[k].set_ylabel('PSD [G^2/Hz]')
-        axes_psd[k].set_ylim(1e-8, 1e1)
+        axes_psd[k].set_ylim(1e-6, 1e1)
+        axes_psd[k].set_xlim(10, 3000)
         plt.tight_layout()
         axes_psd[k].legend()
 
-    plt.figure()
-    plt.title('Histogram of ' + name_signal[i])
+    # plt.figure()
+    # plt.title('Histogram of ' + name_signal[i])
+    # for k in range(len(sensors_name)):
+    #     plt.hist(acc_psd[i][k], bins=100, label='Hist measured-'+str(k), density=True)
+    # plt.hist(acc_psd_expected[i], bins=100, label='Hist expected', density=True)
+    # plt.grid()
+    # plt.legend()
+
+# ======================================================================================================
+# Quasi-static
+
+for i in range(len(name_signal)):
+    windows_ = max(len(acc_psd[i][0]), len(acc_psd[i][1]))
+    if windows_ > len(time_psd[i]):
+        windows_ = len(time_psd[i])
+
+    fig_psd_acc, axes_psd_acc = plt.subplots(2, 1, figsize=(10, 7))
+    fig_psd_acc.suptitle('PSD: ' + name_signal[i] + ' - Grms Accumulated  = ' + str(g_acc[i]))
     for k in range(len(sensors_name)):
-        plt.hist(acc_psd[i][k], bins=100, label='Hist measured-'+str(k), density=True)
-    plt.hist(acc_psd_expected[i], bins=100, label='Hist expected', density=True)
-    plt.grid()
-    plt.legend()
+        max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
+        axes_psd_acc[k].set_yscale('log')
+        axes_psd_acc[k].set_xscale('log')
+        axes_psd_acc[k].plot(psd_freq[i][k][:max_wind], psd_acc[i][k][:max_wind],
+                             label='Measured acceleration-ai'+str(k), lw=0.2)
+        x_temp = bn.move_mean(psd_freq[i][k][:max_wind], window=winn)[winn-1:]
+        y_temp = bn.move_mean(psd_acc[i][k][:max_wind], window=winn)[winn-1:]
+        i_max = np.argmax(y_temp)
+        i_20 = np.argmin(abs(x_temp - 10))
+        axes_psd_acc[k].plot(x_temp, y_temp, color='orange', label='Moving average of measured-ai'+str(k))
+        factor_crit = np.argmin(abs(x_temp - x_temp[i_max] - delta_freq_factor_crit))
+        axes_psd_acc[k].fill_between(x_temp[i_20:factor_crit], y_temp[i_20:factor_crit],
+                                     color='orange', alpha=0.2)
+        axes_psd_acc[k].axvline(x_temp[i_max], 0, 2, color='k')
+        axes_psd_acc[k].plot(HZ[i], GRMS2[i], 'k', label='PSD required')
+        axes_psd_acc[k].grid(which='both', axis='both')
+        axes_psd_acc[k].set_xlabel('Frequency')
+        axes_psd_acc[k].set_ylabel('PSD [G^2/Hz]')
+        axes_psd_acc[k].set_ylim(1e-6, 1e1)
+        axes_psd_acc[k].set_xlim(10, 3000)
+        plt.tight_layout()
+        axes_psd_acc[k].legend()
+
 
 print('View plots')
 plt.show()

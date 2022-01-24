@@ -22,11 +22,11 @@ fsamp = 5000
 _, [a, b, c, windows], [acc_ftt_ftt, freq_fft_fft] = get_sweep_sine(5, 2000, 2, fsamp)
 
 # Response signal
-df = [TdmsFile("./sensors/Test-17-01-22/LogFile_2022-01-17-17-14-30-sweep1.tdms"),
-      TdmsFile("./sensors/Test-17-01-22/LogFile_2022-01-17-17-21-23-sweep1a.tdms")]
+df = [TdmsFile("./sensors/PlantSat - 20-01-22/LogFile_2022-01-20-18-12-02-sweep1-pre-Long.tdms"),
+      TdmsFile("./sensors/PlantSat - 20-01-22/LogFile_2022-01-20-18-35-10-sweep2-post-Long.tdms")]
 
-name_signal = ['Previous-1',
-               'Previous-2']
+name_signal = ['Previous',
+               'Post']
 len_signals = len(name_signal)
 
 sensors_name = ['cDAQ9189-1D36166Mod2/ai0',
@@ -164,6 +164,7 @@ for i in range(len(name_signal)):
 
 fig_psd2, axes_psd2 = plt.subplots(2, 1, figsize=(10, 7))
 fig_psd2.suptitle('PSD: power spectral density')
+diff_peaks = []
 for k in range(len(sensors_name)):
     axes_psd2[k].set_yscale('log')
     axes_psd2[k].set_xscale('log')
@@ -173,7 +174,7 @@ for k in range(len(sensors_name)):
     axes_psd2[k].set_ylim(1e-11, 1)
     axes_psd2[k].set_xlim(1, 4000)
     plt.tight_layout()
-
+    diff_peaks.append([])
     for i in range(len(name_signal)):
         max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
         x_mean = bn.move_mean(psd_freq[i][k][:max_wind], window=data_mean)
@@ -181,6 +182,7 @@ for k in range(len(sensors_name)):
         peaks, properties = find_peaks(y_mean, distance=distance_peaks, prominence=prominence_level,
                                        width=prominence_width)
         print(name_signal[i] + ' - Measured acceleration-ai'+str(k))
+        diff_peaks[k].append(x_mean[peaks])
         print_peaks(x_mean[peaks], y_mean[peaks])
         axes_psd2[k].plot(x_mean[peaks], y_mean[peaks], 'r+', markersize=25)
         axes_psd2[k].plot(psd_freq[i][k][:max_wind], psd_acc[i][k][:max_wind],
@@ -188,6 +190,7 @@ for k in range(len(sensors_name)):
         axes_psd2[k].plot(x_mean, y_mean,
                           label=name_signal[i] + ' - Moving average of measured-ai'+str(k), lw=0.7)
     axes_psd2[k].legend()
+
 print('View plots')
 plt.show()
 
