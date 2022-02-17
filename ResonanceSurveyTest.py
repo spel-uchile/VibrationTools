@@ -6,7 +6,6 @@ Created by:
 els.obrq@gmail.com
 
 """
-
 import matplotlib.pyplot as plt
 import numpy as np
 from nptdms import TdmsFile
@@ -22,8 +21,8 @@ fsamp = 5000
 _, [a, b, c, windows], [acc_ftt_ftt, freq_fft_fft] = get_sweep_sine(5, 2000, 2, fsamp)
 
 # Response signal
-df = [TdmsFile("./sensors/PlantSat - 20-01-22/LogFile_2022-01-20-18-12-02-sweep1-pre-Long.tdms"),
-      TdmsFile("./sensors/PlantSat - 20-01-22/LogFile_2022-01-20-18-35-10-sweep2-post-Long.tdms")]
+df = [TdmsFile("./sensors/SUCHAI3 - 01-02-22/LogFile_2022-02-01-18-30-31-sweep-prior-longitudinal-IoT-arriba.tdms"),
+      TdmsFile("./sensors/SUCHAI3 - 01-02-22/LogFile_2022-02-01-18-40-19-sweep-posterior-longitudinal-IoT-arriba.tdms")]
 
 name_signal = ['Previous',
                'Post']
@@ -88,7 +87,7 @@ print("DATA Grms from measured PSD: ", oarms_fft)
 data_mean = 100
 prominence_level = 0.0005
 prominence_width = 150
-distance_peaks = 1000
+distance_peaks = 1500
 color_s = ['b', 'k', 'o', 'g']
 
 # for i in range(len(name_signal)):
@@ -108,20 +107,20 @@ color_s = ['b', 'k', 'o', 'g']
 #         axes_fft[k].grid()
 #         axes_fft[k].legend()
 
-# for i in range(len(name_signal)):
-#     windows_ = max(len(acc_psd[i][0]), len(acc_psd[i][1]))
-#     if windows_ > len(time_psd[i]):
-#         windows_ = len(time_psd[i])
-#
-#     fig_acc, axes_acc = plt.subplots(1, 2, figsize=(10, 5))
-#     fig_acc.suptitle('Acceleration ' + name_signal[i])
-#     for k in range(len(sensors_name)):
-#         axes_acc[k].step(time_psd[i][:windows_], acc_psd[i][k][:windows_], color_s[k], label='Measured-ai' + str(k),
-#                          lw=0.7)
-#         axes_acc[k].grid()
-#         axes_acc[k].set_xlabel("Time [s]")
-#         axes_acc[k].set_ylabel("Acceleration [g]")
-#         axes_acc[k].legend()
+for i in range(len(name_signal)):
+    windows_ = max(len(acc_psd[i][0]), len(acc_psd[i][1]))
+    if windows_ > len(time_psd[i]):
+        windows_ = len(time_psd[i])
+
+    fig_acc, axes_acc = plt.subplots(1, 2, figsize=(10, 5))
+    fig_acc.suptitle('Acceleration ' + name_signal[i])
+    for k in range(len(sensors_name)):
+        axes_acc[k].step(time_psd[i][:windows_], acc_psd[i][k][:windows_], color_s[k], label='Measured-ai' + str(k),
+                         lw=0.7)
+        axes_acc[k].grid()
+        axes_acc[k].set_xlabel("Time [s]")
+        axes_acc[k].set_ylabel("Acceleration [g]")
+        axes_acc[k].legend()
 
 for i in range(len(name_signal)):
     fig_psd, axes_psd = plt.subplots(2, 1, figsize=(10, 7))
@@ -143,15 +142,23 @@ for i in range(len(name_signal)):
         contour_heights = y_mean[peaks] - prominences[0]
 
         axes_psd[k].plot(x_mean[peaks], y_mean[peaks], 'r+', markersize=25)
-        axes_psd[k].plot(x_mean, y_mean,
-                         label='Moving average of measured-ai'+str(k), lw=0.7)
+        axes_psd[k].vlines(x_mean[peaks], 0, 1, 'k', linestyles='dashed', lw=0.6)
+        axes_psd[k].plot(x_mean, y_mean, label='Moving average of measured-ai' + str(k), lw=0.7)
+        aligv = ['top', 'center', 'bottom']
+        aligh = ['right', 'left']
+        letter = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+        for j in range(len(x_mean[peaks])):
+            axes_psd[k].text(x_mean[peaks][j], y_mean[peaks][j] + 0.0015 * (1 - (-1)**j),
+                             str(round(x_mean[peaks][j], 1)) + " Hz", horizontalalignment='left',
+                             fontsize=10, verticalalignment='bottom',
+                             rotation=45, weight='bold') # bbox=dict(facecolor='red', alpha=0.3)
         axes_psd[k].grid(which='both', axis='both')
         axes_psd[k].set_xlabel('Frequency')
         axes_psd[k].set_ylabel('PSD [G^2/Hz]')
-        axes_psd[k].set_ylim(1e-11, 1)
         axes_psd[k].set_xlim(1, 4000)
+        axes_psd[k].set_ylim(1e-10, 10)
         plt.tight_layout()
-        axes_psd[k].legend()
+        axes_psd[k].legend(loc='lower left')
 
 # for i in range(len(name_signal)):
 #     plt.figure()

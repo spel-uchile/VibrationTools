@@ -12,6 +12,8 @@ import pandas as pd
 from nptdms import TdmsFile
 from tools.Time2PSD import psdftt
 import bottleneck as bn
+from scipy.signal import find_peaks, peak_prominences
+from tools.math_tools import print_peaks
 
 fsamp = 5000
 signalDuration = 60.0
@@ -118,6 +120,7 @@ g_acc = []
 freq_qs = []
 delta_freq_factor_crit = 20
 winn = 20
+max_wind = 0
 for i in range(len(name_signal)):
     psd_acc.append([])
     psd_freq.append([])
@@ -133,10 +136,10 @@ for i in range(len(name_signal)):
         max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
         x_temp = bn.move_mean(psd_freq[i][k][:max_wind], window=winn)[winn-1:]
         y_temp = bn.move_mean(psd_acc[i][k][:max_wind], window=winn)[winn-1:]
-        i_max = np.argmax(y_temp)
-        freq_qs[i].append(x_temp[i_max])
         i_20 = np.argmin(abs(x_temp - 10))
-        factor_crit = np.argmin(abs(x_temp - x_temp[i_max] - delta_freq_factor_crit))
+        i_max = np.argmax(y_temp[i_20:])
+        freq_qs[i].append(x_temp[i_max + i_20])
+        factor_crit = np.argmin(abs(x_temp - x_temp[i_max + i_20] - delta_freq_factor_crit))
         x_area = x_temp[i_20:factor_crit]
         y_area = y_temp[i_20:factor_crit]
         g_acc[i].append(np.sqrt(np.sum(y_area * np.mean(np.diff(x_area)))))
@@ -161,6 +164,7 @@ print("Grms from expected PSD: ", oarms_fft_expected)
 
 # =============================================================================================#
 color_s = ['b', 'r', 'o', 'g']
+
 for i in range(len(name_signal)):
     # fig_fft, axes_fft = plt.subplots(1, 2, figsize=(10, 5))
     # fig_fft.suptitle('Fourier transform. ' + name_signal[i] + ' test')
@@ -189,13 +193,13 @@ for i in range(len(name_signal)):
     fig_psd, axes_psd = plt.subplots(2, 1, figsize=(10, 7))
     fig_psd.suptitle('PSD: power spectral density. ' + name_signal[i] + ' test - Grms = ' + str(oarms_fft[i]))
     for k in range(len(sensors_name)):
-        max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
         axes_psd[k].set_yscale('log')
         axes_psd[k].set_xscale('log')
+        max_wind = min(len(psd_freq[i][k]), len(psd_acc[i][k]))
         axes_psd[k].plot(psd_freq[i][k][:max_wind], psd_acc[i][k][:max_wind], label='Measured acceleration-ai'+str(k))
-        axes_psd[k].plot(bn.move_mean(psd_freq[i][k][:max_wind], window=winn), bn.move_mean(psd_acc[i][k][:max_wind],
-                                                                                            window=winn),
-                         label='Moving average of measured-ai'+str(k))
+        x_temp = bn.move_mean(psd_freq[i][k][:max_wind], window=winn)[winn - 1:]
+        y_temp = bn.move_mean(psd_acc[i][k][:max_wind], window=winn)[winn - 1:]
+        axes_psd[k].plot(x_temp, y_temp, label='Moving average of measured-ai'+str(k))
         axes_psd[k].plot(HZ[i], GRMS2[i], 'k', label='PSD required')
         axes_psd[k].plot(psd_freq_expected[i], psd_acc_expected[i], label='PSD expected')
         axes_psd[k].grid(which='both', axis='both')
@@ -232,18 +236,20 @@ for i in range(len(name_signal)):
                              label='Measured acceleration-ai'+str(k), lw=0.2)
         x_temp = bn.move_mean(psd_freq[i][k][:max_wind], window=winn)[winn-1:]
         y_temp = bn.move_mean(psd_acc[i][k][:max_wind], window=winn)[winn-1:]
-        i_max = np.argmax(y_temp)
         i_20 = np.argmin(abs(x_temp - 10))
+        i_max = np.argmax(y_temp[i_20:])
         axes_psd_acc[k].plot(x_temp, y_temp, color='orange', label='Moving average of measured-ai'+str(k))
-        factor_crit = np.argmin(abs(x_temp - x_temp[i_max] - delta_freq_factor_crit))
+        factor_crit = np.argmin(abs(x_temp - x_temp[i_max + i_20] - delta_freq_factor_crit))
         axes_psd_acc[k].fill_between(x_temp[i_20:factor_crit], y_temp[i_20:factor_crit],
                                      color='orange', alpha=0.2)
-        axes_psd_acc[k].axvline(x_temp[i_max], 0, 2, color='k')
+        axes_psd_acc[k].vlines(x_temp[i_max + i_20], 0, 10, color='r', linestyles='dashed', lw=0.8)
+        axes_psd_acc[k].text(x_temp[i_max + i_20], 1e-6, str(round(x_temp[i_max + i_20], 1)) + " Hz",
+                             weight='bold', horizontalalignment='left')
         axes_psd_acc[k].plot(HZ[i], GRMS2[i], 'k', label='PSD required')
         axes_psd_acc[k].grid(which='both', axis='both')
         axes_psd_acc[k].set_xlabel('Frequency')
         axes_psd_acc[k].set_ylabel('PSD [G^2/Hz]')
-        axes_psd_acc[k].set_ylim(1e-6, 1e1)
+        axes_psd_acc[k].set_ylim(1e-7, 1e1)
         axes_psd_acc[k].set_xlim(10, 3000)
         plt.tight_layout()
         axes_psd_acc[k].legend()
