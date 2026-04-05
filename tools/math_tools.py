@@ -3,6 +3,25 @@ from tools.signal_utilities import EnterPSD
 import matplotlib.pyplot as plt
 import numpy as np
 from tools.Time2PSD import psdftt
+from scipy.interpolate import interp1d
+from scipy.signal import welch, find_peaks, peak_prominences
+
+
+def find_modal_peaks(x_freq, y_psd, freq_expected, psd_expected, max_freq=2000, distance=300, prominence=2.0, width=50):
+    """
+    Detecta picos modales evaluando la transmisibilidad (Q^2).
+    """
+    f_expected = interp1d(freq_expected, psd_expected, bounds_error=False, fill_value=np.nan)
+    expected_interp = f_expected(x_freq)
+
+    transmissibility = np.divide(y_psd, expected_interp,
+                                 out=np.zeros_like(y_psd),
+                                 where=(expected_interp != 0) & (~np.isnan(expected_interp)))
+    peaks, properties = find_peaks(transmissibility, distance=distance, prominence=prominence, width=width)
+
+    peaks = peaks[x_freq[peaks] <= max_freq]
+
+    return peaks, properties
 
 
 def bisection(f, a, b, N):
@@ -64,8 +83,49 @@ def print_peaks(freq, peaks_amp):
     print('Modal frequency [Hz]')
     for i in range(len(freq)):
         print(round(freq[i], 1), 'Hz // ', round(peaks_amp[i], 4), 'g^2/Hz')
-
     return
+
+def print_peaks_error(freq, amp_freq):
+    print('Modal frequency [Hz]')
+    for i in range(len(freq)):
+        print(round(freq[i], 1), 'Hz // ', round(amp_freq[i], 2), '%')
+    return
+
+
+def compare_peaks(prev_freqs, prev_amps, post_freqs, post_amps, sensor_name, axis_name, max_shift_hz=30):
+    """
+        Compares Previous and Post peaks and prints a Markdown table.
+        """
+    print(f"\n--- Modal Shift Summary: {sensor_name} ({axis_name}) ---")
+    print(
+        "| Mode | Prev. Freq. (Hz) | Post Freq. (Hz) | Freq. Shift (%) | Abs. Shift (Hz) | Prev. Amp. | Post Amp. | Amp. Shift (%) |")
+    print(
+        "|------|------------------|-----------------|-----------------|-----------------|------------|-----------|----------------|")
+    modo = 1
+    error_freq = []
+    abs_error = []
+    for pr_f, pr_a in zip(prev_freqs, prev_amps):
+        if len(post_freqs) == 0:
+            continue
+
+        idx_closest = np.argmin(np.abs(np.array(post_freqs) - pr_f))
+        po_f = post_freqs[idx_closest]
+        po_a = post_amps[idx_closest]
+
+        if abs(po_f - pr_f) < max_shift_hz:
+            diff_f = po_f - pr_f
+            pct_f = (diff_f / pr_f) * 100
+            diff_a = po_a - pr_a
+            pct_a = (diff_a / pr_a) * 100
+
+            error_freq.append(diff_f)
+            abs_error.append(pct_f)
+            print(
+                f"| {modo:4d} | {pr_f:19.1f} | {po_f:15.1f} | {pct_f:+15.2f}% | {diff_f:+14.1f} | {pr_a:13.4f} | {po_a:9.4f} | {pct_a:+14.2f}% |")
+            modo += 1
+
+    print_peaks_error(error_freq, abs_error)
+    print("\n")
 
 
 def get_psd_from_cos(M, s_max, s_zero, sr, signalDuration):
