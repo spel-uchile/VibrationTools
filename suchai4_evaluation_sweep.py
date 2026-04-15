@@ -16,11 +16,11 @@ from tools.math_tools import print_peaks, find_modal_peaks, compare_peaks
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-data_dir = 'data2026_suchai4'
+data_dir = 'data_suchai4_v2'
 output_dir = 'SpaceX_Report_Plots'
 os.makedirs(output_dir, exist_ok=True)
 
-axes_to_test = ['Lateral_X', 'Lateral_Y', 'Longitudinal']
+axes_to_test = ['LATERAL_X', 'LATERAL_Y', 'LONG']
 name_signal = ['Previous', 'Post']
 len_signals = len(name_signal)
 sensors_name = ['AI 2', 'AI 4']

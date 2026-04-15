@@ -120,7 +120,8 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     if 1/pmin > sr:
         pmin = 1/sr
 
-    tmax = pmin * M
+    #tmax = pmin * M
+    tmax = M / sr
     print('Period [sec]: ', tmax)
     fmax = max(freq_spec)
 
@@ -183,8 +184,8 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     
     print(" Apply spec ")
     
-    # for j in range(1, m2):
-    #    Y[j] = sq_spec[j] * YF[j]
+    for j in range(1, m2):
+       Y[j] = sq_spec[j] * YF[j]
     
     
     YFn = YF[0:m2]
@@ -227,8 +228,8 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     stddev = std(psd_th)
     
     psd_th *= (spec_grms / stddev)
-    #psd_th[where(psd_th > 20)] = 0.95 * 20
-    #psd_th[where(psd_th < -20)] = -0.95 * 20
+    psd_th[where(psd_th > 20)] = 0.95 * 20
+    psd_th[where(psd_th < -20)] = -0.95 * 20
 
     nktime = ceil(signalDuration / tmax)
     new_len = M * nktime
@@ -245,7 +246,7 @@ def get_acc_from_psd(M, s_max, s_zero, sr, signalDuration):
     
     sr, dt = sample_rate_check(a, b, num, sr, dt)
     
-    psd_test, freq_test, psd_grms_test = psdftt(psd_th, len(psd_th)/4, sr, 0, len(psd_th)/8)
+    psd_test, freq_test, psd_grms_test = psdftt(psd_th, int(len(psd_th)/4), sr, 0, len(psd_th)/8)
     
     plt.figure(1)
     plt.plot(freq_test, psd_test, label="synthesis", linewidth=1.0)

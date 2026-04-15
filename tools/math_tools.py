@@ -185,7 +185,7 @@ def get_psd_from_cos(M, s_max, s_zero, sr, signalDuration):
     for i in range(m2):
         xki += (10*sq_spec[i]**2) * np.cos(tpi * fft_freq[i] * time)
 
-    a, b, c = psdftt(xki, M/2, sr, 0, M/4)
+    a, b, c = psdftt(xki, int(M/2), sr, 0, M/4)
     windows = min(len(a), len(b))
 
     print('Grms:', c)
@@ -196,8 +196,8 @@ def get_psd_from_cos(M, s_max, s_zero, sr, signalDuration):
     plt.plot(b[:windows], a[:windows], 'o-', label='PSD')
     plt.plot(freq_spec, amp_spec, label='Expected')
     plt.plot(fft_freq, 10 ** y, label='Interpolation')
-    plt.xscale('Log')
-    plt.yscale('Log')
+    plt.xscale('log')
+    plt.yscale('log')
     plt.grid()
     plt.legend()
     plt.show()
