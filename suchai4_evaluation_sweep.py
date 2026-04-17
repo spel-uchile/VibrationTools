@@ -16,9 +16,12 @@ from tools.math_tools import print_peaks, find_modal_peaks, compare_peaks
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-data_dir = 'data_suchai4_v2'
-output_dir = 'SpaceX_Report_Plots'
+MAIN_DIR = 'data_suchai4_v2/'
+output_dir = 'SUCHAI4_Plots'
 os.makedirs(output_dir, exist_ok=True)
+
+list_data = os.listdir(MAIN_DIR)
+list_excel: list = [elem for elem in list_data if "xlsx" in elem]
 
 axes_to_test = ['LATERAL_X', 'LATERAL_Y', 'LONG']
 name_signal = ['Previous', 'Post']
@@ -26,31 +29,73 @@ len_signals = len(name_signal)
 sensors_name = ['AI 2', 'AI 4']
 
 
-data_mean = 100
+data_mean = 10
 prominence_level = 0.0005
-prominence_width = 100
-distance_peaks = 300
+prominence_width = 150
+distance_peaks = 500
 color_s = ['b', 'k', 'r', 'g']
+
+
+def read_excel(file_path, pickle_filename):
+    df1 = pd.read_excel(file_path, sheet_name='Data1', skiprows=[1])
+    try:
+        df2 = pd.read_excel(file_path, sheet_name='Data1-1')
+
+        df1 = df1.drop(0)
+        df2 = df2.drop(0)
+
+        df_combined = pd.concat([df1, df2], ignore_index=True)
+    except Exception as e:
+        print(f"No Data2 sheet found. Using Data1 sheet.")
+        df_combined = df1
+
+    df_combined['Time'] = pd.to_numeric(df_combined['Time'])
+    df_combined['AI 2'] = pd.to_numeric(df_combined['AI 2'])
+    df_combined['AI 4'] = pd.to_numeric(df_combined['AI 4'])
+
+    df_combined.to_pickle(pickle_filename)
+    print(f"Data saved successfully to {pickle_filename}")
+    return df_combined
+
 
 for axis in axes_to_test:
     print(f"\n{'='*50}")
     print(f"ANALYZING AXIS: {axis}")
     print(f"{'='*50}")
 
-    file_prev = os.path.join(data_dir, f"{axis}_sweep_prev.pkl")
-    file_post = os.path.join(data_dir, f"{axis}_sweep_post.pkl")
+    files_prev_post = [elem for elem in list_excel if axis in elem]
+    df_prev = None
+    df_post = None
+    
+    for name_of_excel_file in files_prev_post:
+        print(f"\n--- Processing: {name_of_excel_file} ---")
+        file_path = f'{MAIN_DIR}{name_of_excel_file}'
+        pickle_filename = f'{MAIN_DIR}{name_of_excel_file[:-5]}.pkl'
 
-    if not (os.path.exists(file_prev) and os.path.exists(file_post)):
-        print(f"Files to {axis} not working ...")
+        if os.path.exists(pickle_filename):
+            print(f"Data already exists at {pickle_filename}. Loading pickle...")
+            with open(pickle_filename, 'rb') as f:
+                df_ = pd.read_pickle(f)
+        else:
+            print("Reading data from Excel...")
+            df_ = read_excel(file_path, pickle_filename)
+
+        if "prev" in name_of_excel_file.lower():
+            df_prev = df_
+        elif "post" in name_of_excel_file.lower():
+            df_post = df_
+        else:
+            continue
+
+    if df_prev is None or df_post is None:
+        print("One or more dataframes are None. Skipping this axis.")
         continue
 
-    df_prev = pd.read_pickle(file_prev)
-    df_post = pd.read_pickle(file_post)
     dfs = [df_prev, df_post]
 
     dt = np.mean(np.diff(df_prev['Time']))
     fsamp = 1.0 / dt
-
+    print("Sampling frequency: ", fsamp, "Hz")
     _, [a, b, c, windows], [acc_ftt_ftt, freq_fft_fft] = get_sweep_sine(5, 2000, 2, fsamp)
 
     a = np.array(a[:windows])
@@ -201,7 +246,7 @@ for axis in axes_to_test:
                       f"A{k * 2 + 2}", axis)
 
     plt.tight_layout()
-    fig_psd2.savefig(f"{output_dir}/3_Overlay_{axis}.png", dpi=300, bbox_inches='tight')
+    fig_psd2.savefig(f"{output_dir}/3_Overlay_{axis}_{name_of_excel_file}.png", dpi=300, bbox_inches='tight')
 
     print(f'\nAll plots successfully saved in /{output_dir}/')
     plt.show()

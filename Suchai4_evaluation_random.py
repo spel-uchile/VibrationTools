@@ -10,10 +10,11 @@ import os
 import bottleneck as bn
 from tools.Time2PSD import psdftt
 
-MAIN_DIR = 'data_suchai4_v2/random2/'
+MAIN_DIR = 'data_suchai4_v2/random/'
 list_data = os.listdir(MAIN_DIR)
 list_excel = [elem for elem in list_data if "xlsx" in elem]
-
+output_dir = 'SUCHAI4_Plots'
+os.makedirs(output_dir, exist_ok=True)
 
 # INPUT PSD
 df_long = pd.read_csv("data2026_suchai4/dorbit_longitudinal_PFM.txt", sep=r'\s+', engine='python', header=None)
@@ -105,15 +106,15 @@ for name_of_excel_file in list_excel:
         y_temp = bn.move_mean(Pxx, window=winn)[winn-1:]
 
         # Peak analysis (search between 10 Hz and 2000 Hz)
-        i_20 = np.argmin(abs(x_temp - 10))
+        i_100 = np.argmin(abs(x_temp - 100))
         i_2000 = np.argmin(abs(x_temp - 2000))
-        if len(y_temp[i_20:i_2000]) > 0:
-            i_max = np.argmax(y_temp[i_20:i_2000])
-            peak_freq = x_temp[i_max + i_20]
+        if len(y_temp[i_100:i_2000]) > 0:
+            i_max = np.argmax(y_temp[i_100:i_2000])
+            peak_freq = x_temp[i_max + i_100]
 
             factor_crit = np.argmin(abs(x_temp - peak_freq - delta_freq_factor_crit))
-            x_area = x_temp[i_20:factor_crit]
-            y_area = y_temp[i_20:factor_crit]
+            x_area = x_temp[i_100:factor_crit]
+            y_area = y_temp[i_100:factor_crit]
 
             # Accumulated G
             g_accumulated = np.sqrt(np.sum(y_area * np.mean(np.diff(x_area))))
@@ -131,7 +132,7 @@ for name_of_excel_file in list_excel:
     # =========================================================================
 
     # --- Plot A: Time Domain ---
-    plt.figure(figsize=(12, 4))
+    fig_ac = plt.figure(figsize=(12, 4))
     plt.title(f'Time History - {name_of_excel_file}')
     for i, sensor in enumerate(sensors):
         plt.plot(df_combined['Time'], df_combined[sensor], label=f'{sensor}', color=colors[i], linewidth=0.5, alpha=0.8)
@@ -140,6 +141,7 @@ for name_of_excel_file in list_excel:
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    fig_ac.savefig(f"{output_dir}/acc_{name_of_excel_file}.png", dpi=300, bbox_inches='tight')
 
     # --- Plot B: Power Spectral Density (PSD) ---
     fig_psd, axes_psd = plt.subplots(2, 1, figsize=(10, 7))
@@ -156,7 +158,7 @@ for name_of_excel_file in list_excel:
         y_temp = bn.move_mean(psd_accs[i], window=winn)[winn - 1:]
         axes_psd[i].plot(x_temp, y_temp, color='orange', label='Moving average')
 
-        if "_X_" in name_of_excel_file or "_Y_" in name_of_excel_file:
+        if "_X" in name_of_excel_file or "_Y_" in name_of_excel_file:
             axes_psd[i].plot(HZ[1], GRMS2[1], 'k', label='PSD required')
         else:
             axes_psd[i].plot(HZ[0], GRMS2[0], 'k', label='PSD required')
@@ -167,6 +169,7 @@ for name_of_excel_file in list_excel:
         axes_psd[i].set_xlim(10, 4000)
         axes_psd[i].legend()
     plt.tight_layout()
+    fig_psd.savefig(f"{output_dir}/psd_{name_of_excel_file}.png", dpi=300, bbox_inches='tight')
 
     # --- Plot C: Quasi-Static Analysis ---
     fig_qs, axes_qs = plt.subplots(2, 1, figsize=(10, 7))
@@ -197,5 +200,5 @@ for name_of_excel_file in list_excel:
         axes_qs[i].set_xlim(10, 4000)
         axes_qs[i].legend()
     plt.tight_layout()
-
+    fig_qs.savefig(f"{output_dir}/quasi_{name_of_excel_file}.png", dpi=300, bbox_inches='tight')
     plt.show()
