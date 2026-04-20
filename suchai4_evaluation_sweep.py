@@ -16,7 +16,7 @@ from tools.math_tools import print_peaks, find_modal_peaks, compare_peaks
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-MAIN_DIR = 'data_suchai4_v2/'
+MAIN_DIR = 'data_suchai4_v3/'
 output_dir = 'SUCHAI4_Plots'
 os.makedirs(output_dir, exist_ok=True)
 
@@ -66,7 +66,7 @@ for axis in axes_to_test:
     files_prev_post = [elem for elem in list_excel if axis in elem]
     df_prev = None
     df_post = None
-    
+
     for name_of_excel_file in files_prev_post:
         print(f"\n--- Processing: {name_of_excel_file} ---")
         file_path = f'{MAIN_DIR}{name_of_excel_file}'
@@ -241,9 +241,30 @@ for axis in axes_to_test:
 
         axes_psd2[k].legend()
 
+        # =============================================================
+        # Grms report - RPUG 6.7.1 / Table 6-3: minimum input 0.1 g (sine peak)
+        # Equivalent RMS floor = 0.1 / sqrt(2) ~ 0.0707 g
+        # =============================================================
+        print(f"\n--- Grms - A{k * 2 + 2} ({axis}) - RPUG min input: 0.1 g (peak) ---")
+        for ii in range(len(name_signal)):
+            grms_val = oarms_fft[ii][k]
+            status = "OK" if grms_val >= 0.1 / np.sqrt(2) else "BELOW MIN"
+            print(f"  {name_signal[ii]:<10}: Grms = {grms_val:.4f} g  [{status}]")
+
+        # Smoothed PSD arrays for Q-factor computation (same smoothing as peaks)
+        max_wind_prev = min(len(psd_freq[0][k]), len(psd_acc[0][k]))
+        x_smooth_prev = bn.move_mean(psd_freq[0][k][:max_wind_prev], window=data_mean)[data_mean - 1:]
+        y_smooth_prev = bn.move_mean(psd_acc[0][k][:max_wind_prev], window=data_mean)[data_mean - 1:]
+
+        max_wind_post = min(len(psd_freq[1][k]), len(psd_acc[1][k]))
+        x_smooth_post = bn.move_mean(psd_freq[1][k][:max_wind_post], window=data_mean)[data_mean - 1:]
+        y_smooth_post = bn.move_mean(psd_acc[1][k][:max_wind_post], window=data_mean)[data_mean - 1:]
+
         compare_peaks(peak_data[k]['prev_f'], peak_data[k]['prev_a'],
                       peak_data[k]['post_f'], peak_data[k]['post_a'],
-                      f"A{k * 2 + 2}", axis)
+                      f"A{k * 2 + 2}", axis,
+                      prev_freq_arr=x_smooth_prev, prev_psd_arr=y_smooth_prev,
+                      post_freq_arr=x_smooth_post, post_psd_arr=y_smooth_post)
 
     plt.tight_layout()
     fig_psd2.savefig(f"{output_dir}/3_Overlay_{axis}_{name_of_excel_file}.png", dpi=300, bbox_inches='tight')

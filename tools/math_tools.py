@@ -7,6 +7,42 @@ from scipy.interpolate import interp1d
 from scipy.signal import welch, find_peaks, peak_prominences
 
 
+# =============================================================================
+# HELPERS FOR Q-FACTOR AND PEAK MATCHING
+# =============================================================================
+def calculate_q_factor(freq_array, psd_array, peak_freq, peak_amp):
+    """
+    Q factor via 3 dB bandwidth method (FWHM) on PSD.
+    PSD is a power quantity, so -3 dB corresponds to half the peak value.
+    Q = f_peak / (f_high - f_low)
+    Returns None if half-power crossings cannot be resolved.
+    """
+    half_power = peak_amp / 2.0
+    peak_idx = int(np.argmin(np.abs(freq_array - peak_freq)))
+
+    # Left half-power crossing (linear interpolation)
+    f_low = None
+    for ii in range(peak_idx, 0, -1):
+        if psd_array[ii] <= half_power < psd_array[ii + 1]:
+            x0, x1 = freq_array[ii], freq_array[ii + 1]
+            y0, y1 = psd_array[ii], psd_array[ii + 1]
+            f_low = x0 + (half_power - y0) * (x1 - x0) / (y1 - y0) if y1 != y0 else x0
+            break
+
+    # Right half-power crossing (linear interpolation)
+    f_high = None
+    for ii in range(peak_idx, len(psd_array) - 1):
+        if psd_array[ii + 1] <= half_power < psd_array[ii]:
+            x0, x1 = freq_array[ii], freq_array[ii + 1]
+            y0, y1 = psd_array[ii], psd_array[ii + 1]
+            f_high = x0 + (half_power - y0) * (x1 - x0) / (y1 - y0) if y1 != y0 else x1
+            break
+
+    if f_low is None or f_high is None or (f_high - f_low) <= 0:
+        return None
+    return peak_freq / (f_high - f_low)
+
+
 def find_modal_peaks(x_freq, y_psd, freq_expected, psd_expected, max_freq=2000, distance=300, prominence=2.0, width=50):
     """
     Detecta picos modales evaluando la transmisibilidad (Q^2).
@@ -92,15 +128,24 @@ def print_peaks_error(freq, amp_freq):
     return
 
 
-def compare_peaks(prev_freqs, prev_amps, post_freqs, post_amps, sensor_name, axis_name, max_shift_hz=30):
+def compare_peaks(prev_freqs, prev_amps, post_freqs, post_amps, sensor_name, axis_name, max_shift_hz=30,
+                  prev_freq_arr=None, prev_psd_arr=None, post_freq_arr=None, post_psd_arr=None):
     """
-        Compares Previous and Post peaks and prints a Markdown table.
-        """
+    Compares Previous and Post peaks and prints a Markdown table.
+    If smoothed PSD arrays (prev_freq_arr, prev_psd_arr, post_freq_arr, post_psd_arr)
+    are provided, also computes Q-factor via 3 dB bandwidth (FWHM) for each matched peak.
+    """
+    compute_q = all(arr is not None for arr in
+                    [prev_freq_arr, prev_psd_arr, post_freq_arr, post_psd_arr])
+
     print(f"\n--- Modal Shift Summary: {sensor_name} ({axis_name}) ---")
-    print(
-        "| Mode | Prev. Freq. (Hz) | Post Freq. (Hz) | Freq. Shift (%) | Abs. Shift (Hz) | Prev. Amp. | Post Amp. | Amp. Shift (%) |")
-    print(
-        "|------|------------------|-----------------|-----------------|-----------------|------------|-----------|----------------|")
+    if compute_q:
+        print("| Mode | Prev. Freq. (Hz) | Post Freq. (Hz) | Freq. Shift (%) | Abs. Shift (Hz) | Prev. Amp. | Post Amp. | Amp. Shift (%) | Q_prev | Q_post |")
+        print("|------|------------------|-----------------|-----------------|-----------------|------------|-----------|----------------|--------|--------|")
+    else:
+        print("| Mode | Prev. Freq. (Hz) | Post Freq. (Hz) | Freq. Shift (%) | Abs. Shift (Hz) | Prev. Amp. | Post Amp. | Amp. Shift (%) |")
+        print("|------|------------------|-----------------|-----------------|-----------------|------------|-----------|----------------|")
+
     modo = 1
     error_freq = []
     abs_error = []
@@ -120,8 +165,15 @@ def compare_peaks(prev_freqs, prev_amps, post_freqs, post_amps, sensor_name, axi
 
             error_freq.append(diff_f)
             abs_error.append(pct_f)
-            print(
-                f"| {modo:4d} | {pr_f:19.1f} | {po_f:15.1f} | {pct_f:+15.2f}% | {diff_f:+14.1f} | {pr_a:13.4f} | {po_a:9.4f} | {pct_a:+14.2f}% |")
+
+            if compute_q:
+                q_prev = calculate_q_factor(prev_freq_arr, prev_psd_arr, pr_f, pr_a)
+                q_post = calculate_q_factor(post_freq_arr, post_psd_arr, po_f, po_a)
+                q_prev_s = f"{q_prev:.2f}" if q_prev is not None else "N/A"
+                q_post_s = f"{q_post:.2f}" if q_post is not None else "N/A"
+                print(f"| {modo:4d} | {pr_f:19.1f} | {po_f:15.1f} | {pct_f:+15.2f}% | {diff_f:+14.1f} | {pr_a:13.4f} | {po_a:9.4f} | {pct_a:+14.2f}% | {q_prev_s:>6} | {q_post_s:>6} |")
+            else:
+                print(f"| {modo:4d} | {pr_f:19.1f} | {po_f:15.1f} | {pct_f:+15.2f}% | {diff_f:+14.1f} | {pr_a:13.4f} | {po_a:9.4f} | {pct_a:+14.2f}% |")
             modo += 1
 
     print_peaks_error(error_freq, abs_error)
